@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 import Connection from './database/db.js';
 // import routes from './routes/Routes.js';
 import users from './routes/Routes.js';
+import products from './routes/Products.js';
+import category from './routes/categoryRoutes.js';
+
 // import
 
 // import Connection from './database/db.js';
@@ -29,6 +32,8 @@ Connection()
 
 
 app.use('/user', users)
+app.use('/products', products)
+app.use("/categories", category);
 
 
 
