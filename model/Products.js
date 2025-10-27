@@ -26,7 +26,7 @@ const productSchema = new mongoose.Schema({
     ref: 'Category'
   },
   nestedSubcategory: { 
-    type: mongoose.Schema.Types.ObjectId,
+     type: mongoose.Schema.Types.Mixed, 
     ref: 'Category'
   },
 

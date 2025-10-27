@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const filterOptionSchema = new mongoose.Schema({
-  id: { type: Number, required: true },
+  _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
   name: { type: String, required: true },
   key: { type: String, required: true },
   type: { 
@@ -18,11 +18,12 @@ const filterOptionSchema = new mongoose.Schema({
 
 // Create the subcategory schema with recursive nesting
 const subcategorySchema = new mongoose.Schema({
+  _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
   name: { type: String, required: true },
   slug: { type: String, required: true },
   description: { type: String, default: "" },
   filterOptions: { type: [filterOptionSchema], default: [] },
-  subcategories: [{ type: mongoose.Schema.Types.Mixed, default: [] }] // prevent recursive schema corruption
+  subcategories: [{ type: mongoose.Schema.Types.Mixed, default: [] }]
 }, { _id: true });
 
 
@@ -32,15 +33,15 @@ const categorySchema = new mongoose.Schema(
     slug: { type: String, required: true, unique: true },
     description: { type: String, default: "" },
     image: { 
-      data: Buffer, // Store image as binary data
-      contentType: String // MIME type of the image
+      data: Buffer,
+      contentType: String
     },
-    imagePreview: { type: String }, // Base64 or URL for preview
+    imagePreview: { type: String },
     subcategories: [subcategorySchema],
   },
   { 
     timestamps: true,
-    toJSON: { virtuals: true }, // Include virtuals when converting to JSON
+    toJSON: { virtuals: true },
     toObject: { virtuals: true }
   }
 );
