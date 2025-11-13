@@ -1,47 +1,37 @@
 // models/Product.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
-const specificationSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true
-  },
-  values: [String] // Array of selected values
+const variationSchema = new mongoose.Schema({
+  color: { type: String },
+  size: { type: String },
+  stock: { type: Number, default: 0 },
+  sku: { type: String },
 });
 
-const productSchema = new mongoose.Schema({
-  name: String,
-  description: String,
-  price: Number,
-  stock: Number,
-
-  // Category references
-  category: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category',
-    required: true,
+const productSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    description: { type: String },
+    price: { type: Number, required: true },
+    discountPrice: { type: Number },
+    images: [{ type: String }],
+    brand: { type: String },
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Category',
+    },
+    variations: [variationSchema],
+    labels: [
+      {
+        type: String,
+        enum: ['top_product', 'new_item', 'flash_deal', 'just_for_you'],
+      },
+    ],
+    rating: { type: Number, default: 0 },
+    reviews: { type: Number, default: 0 },
   },
-  subcategory: { 
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category'
-  },
-  nestedSubcategory: { 
-     type: mongoose.Schema.Types.Mixed, 
-    ref: 'Category'
-  },
+  { timestamps: true }
+);
 
-  // Category hierarchy
-  categoryPath: { type: [mongoose.Schema.Types.Mixed], default: [] },
-  finalCategorySlug: String,
-
-  // Simplified specifications
-  specification: [specificationSchema],
-
-  status: {
-    type: String,
-    enum: ['draft', 'published', 'archived'],
-    default: 'draft',
-  },
-}, { timestamps: true });
-
-module.exports = mongoose.model('Product', productSchema);
+const Product = mongoose.model('Product', productSchema);
+export default Product;
