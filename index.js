@@ -3,9 +3,12 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import Connection from './database/db.js';
-import users from './routes/Routes.js';
+
 import products from './routes/Products.js';
 import category from './routes/categoryRoutes.js';
+import cart from './routes/Cart.js';
+import user from './routes/Users.js';
+
 
 dotenv.config();
 const app = express();
@@ -16,15 +19,16 @@ app.use(bodyParser.json({ limit: '50mb', extended: true }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // ✅ Enable CORS
-app.use(cors());
+app.use(cors('*'));
 
 // ✅ Connect to database
 Connection();
 
 // ✅ Register routes
-app.use('/user', users);
+app.use('/user', user);
 app.use('/products', products);
 app.use('/categories', category);
+app.use('/cart',cart )
 
 // ✅ Default route
 app.use('/', (req, res) => {

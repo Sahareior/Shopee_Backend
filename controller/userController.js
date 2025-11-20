@@ -63,10 +63,21 @@ export const signIn = async (req, res) => {
 };
 
 // ✅ Simple test route (optional)
+// export const getUser = async (req, res) => {
+//   try {
+
+//     res.status(200).json('Server and user routes are working fine');
+//   } catch (err) {
+//     res.status(500).json('Something went wrong');
+//   }
+// };
+
+
 export const getUser = async (req, res) => {
   try {
-    res.status(200).json('Server and user routes are working fine');
+    const users = await User.find(); // fetch all products from DB
+    res.status(200).json(users);
   } catch (err) {
-    res.status(500).json('Something went wrong');
+    res.status(500).json({ message: "Failed to fetch products", error: err.message });
   }
 };

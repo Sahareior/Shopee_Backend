@@ -33,6 +33,7 @@ export const getProductsByLevel = async (req,res) => {
   }
 }
 
+
 export const filterProducts = async (req, res) => {
   console.log('Query parameters:', req.query); 
   console.log('Full request:', req.url); 
