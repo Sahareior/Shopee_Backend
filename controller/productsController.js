@@ -52,9 +52,7 @@ export const filterProducts = async (req, res) => {
       search
     } = req.query; // Use req.query for GET requests
 
-    console.log('Color:', color);
-    console.log('Size:', size);
-
+ 
     // Build filter object
     const filter = {};
 

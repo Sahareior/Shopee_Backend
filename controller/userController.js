@@ -75,9 +75,9 @@ export const signIn = async (req, res) => {
 
 export const getUser = async (req, res) => {
   try {
-    const users = await User.find(); // fetch all products from DB
+    const users = await User.find().select('name email'); // Include only specific fields
     res.status(200).json(users);
   } catch (err) {
-    res.status(500).json({ message: "Failed to fetch products", error: err.message });
+    res.status(500).json({ message: "Failed to fetch users", error: err.message });
   }
 };
