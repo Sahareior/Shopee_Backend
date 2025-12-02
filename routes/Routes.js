@@ -5,7 +5,7 @@ const users = express.Router()
 
 
 users.post('/sign-up',signUp)
-users.get('/sign-up',getUser)
+users.get('/all-users',getUser)
 users.post("/sign-in", signIn)
 
 

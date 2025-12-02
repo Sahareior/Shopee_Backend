@@ -63,10 +63,19 @@ export const signIn = async (req, res) => {
 };
 
 // ✅ Simple test route (optional)
+// 🧩 GET ALL USERS
 export const getUser = async (req, res) => {
   try {
-    res.status(200).json('Server and user routes are working fine');
+    // Fetch all users but EXCLUDE passwords
+    const users = await User.find({}, { password: 0 });
+
+    res.status(200).json({
+      message: 'All users retrieved successfully',
+      users,
+    });
   } catch (err) {
-    res.status(500).json('Something went wrong');
+    console.error('Get users error:', err);
+    res.status(500).json('Something went wrong while fetching users');
   }
 };
+

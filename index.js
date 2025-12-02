@@ -6,10 +6,13 @@ import Connection from './database/db.js';
 import users from './routes/Routes.js';
 import products from './routes/Products.js';
 import category from './routes/categoryRoutes.js';
+import orders from './routes/orders.js';
+import recentView from './routes/recent_view.js';
 
 dotenv.config();
 const app = express();
 const PORT = 8000;
+
 
 // ✅ Increase payload limit
 app.use(bodyParser.json({ limit: '50mb', extended: true }));
@@ -25,6 +28,8 @@ Connection();
 app.use('/user', users);
 app.use('/products', products);
 app.use('/categories', category);
+app.use('/orders',orders)
+app.use('/recent-view',recentView)
 
 // ✅ Default route
 app.use('/', (req, res) => {

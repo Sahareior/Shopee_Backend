@@ -27,11 +27,28 @@ const productSchema = new mongoose.Schema(
         enum: ['top_product', 'new_item', 'flash_deal', 'just_for_you'],
       },
     ],
+    discount: {
+      type: Number,
+    },
     rating: { type: Number, default: 0 },
     reviews: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
+
+// Pre-save middleware should be defined after schema creation
+productSchema.pre('save', function (next) {
+  // If product has flash_deal label AND discount is provided
+  if (this.labels.includes('flash_deal') && this.discount) {
+    const discountAmount = (this.price * this.discount) / 100;
+    this.discountPrice = this.price - discountAmount;
+  } else {
+    // No flash deal → remove discount price
+    this.discountPrice = undefined;
+  }
+
+  next();
+});
 
 const Product = mongoose.model('Product', productSchema);
 export default Product;
