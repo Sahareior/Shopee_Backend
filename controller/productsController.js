@@ -15,7 +15,7 @@ export const addProducts = async (req, res) => {
 
 export const getAllProducts = async (req, res) => {
   try {
-    const products = await Products.find(); // fetch all products from DB
+    const products = await Products.find().populate('categoryId'); // fetch all products from DB
     res.status(200).json(products);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch products", error: err.message });
