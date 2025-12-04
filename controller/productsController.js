@@ -33,12 +33,14 @@ export const getProductsByLevel = async (req,res) => {
   }
 }
 
+// Improved filterProducts - supports multi-value queries, variations SKUs, color/size arrays, inStock, rating, price ranges, labels, search, and category
 export const filterProducts = async (req, res) => {
-  console.log('Query parameters:', req.query); 
-  console.log('Full request:', req.url); 
-  
+  console.log('Query parameters:', req.query);
+  console.log('Full request:', req.url);
+
   try {
-    const {
+    // Destructure (all are strings or arrays from req.query)
+    let {
       category,
       brand,
       minPrice,
@@ -48,89 +50,139 @@ export const filterProducts = async (req, res) => {
       color,
       size,
       inStock,
-      search
-    } = req.query; // Use req.query for GET requests
+      search,
+      variations,    // interpreted as list of SKUs (comma-separated or multiple params)
+      variationSku,  // alias for single/multi SKUs
+      page,
+      limit,
+      sortBy
+    } = req.query;
 
-    console.log('Color:', color);
-    console.log('Size:', size);
+    // Helper: normalize query param into array of trimmed strings (or undefined)
+    const normalizeToArray = (v) => {
+      if (v === undefined || v === null) return undefined;
+      if (Array.isArray(v)) return v.flatMap(x => String(x).split(',')).map(s => s.trim()).filter(Boolean);
+      return String(v).split(',').map(s => s.trim()).filter(Boolean);
+    };
 
-    // Build filter object
+    const brandArr = normalizeToArray(brand);
+    const labelArr = normalizeToArray(labels);
+    const colorArr = normalizeToArray(color);
+    const sizeArr = normalizeToArray(size);
+    const variationArr = normalizeToArray(variations || variationSku);
+
+    // Build Mongo filter
     const filter = {};
 
-    // Category filter
+    // Category (assume category is id or slug — if your data uses _id, pass that; if slug, adapt)
     if (category) {
-      filter.categoryId = category;
+      // If you're using Mongo ObjectId strings for category: pass as-is. If you want to match slug, change field.
+      filter['categoryId._id'] = category; // adjust if you expect categoryId to be a plain id string or slug
     }
 
-    // Brand filter (case insensitive)
-    if (brand) {
-      filter.brand = { $regex: brand, $options: 'i' };
+    // Brand: allow case-insensitive match for any provided brands
+    if (brandArr && brandArr.length > 0) {
+      filter.brand = { $in: brandArr.map(b => new RegExp(`^${escapeRegExp(b)}$`, 'i')) };
     }
 
-    // Price range filter
+    // Price range: supports numeric min/max; applies to "price" field (you can extend to discountPrice if desired)
     if (minPrice || maxPrice) {
       filter.price = {};
-      if (minPrice) filter.price.$gte = Number(minPrice);
-      if (maxPrice) filter.price.$lte = Number(maxPrice);
+      if (minPrice !== undefined && minPrice !== '') filter.price.$gte = Number(minPrice);
+      if (maxPrice !== undefined && maxPrice !== '') filter.price.$lte = Number(maxPrice);
     }
 
-    // Labels filter (array contains)
-    if (labels) {
-      const labelArray = Array.isArray(labels) ? labels : [labels];
-      filter.labels = { $in: labelArray };
+    // Labels: any-of
+    if (labelArr && labelArr.length > 0) {
+      filter.labels = { $in: labelArr };
     }
 
-    // Rating filter (minimum rating)
-    if (rating) {
-      filter.rating = { $gte: Number(rating) };
+    // Rating (minimum)
+    if (rating !== undefined && rating !== '') {
+      const r = Number(rating);
+      if (!Number.isNaN(r)) filter.rating = { $gte: r };
     }
 
-    // Search in name or description
+    // Search across name and description
     if (search) {
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { name: { $regex: escapeRegExp(search), $options: 'i' } },
+        { description: { $regex: escapeRegExp(search), $options: 'i' } }
       ];
     }
 
-    // Variations filters
+    // Variations: build $elemMatch if any of color/size/sku/inStock filters exist
     const variationConditions = {};
-    
-    if (color) {
-      variationConditions.color = { 
-        $regex: color, 
-        $options: 'i' 
-      };
-    }
-    
-    if (size) {
-      variationConditions.size = { 
-        $regex: size, 
-        $options: 'i' 
-      };
-    }
-    
-    if (inStock === 'true') {
-      variationConditions.stock = { $gt: 0 };
+
+    // color(s)
+    if (colorArr && colorArr.length > 0) {
+      variationConditions.color = { $in: colorArr.map(c => new RegExp(escapeRegExp(c), 'i')) };
     }
 
-    // If we have variation filters, use $elemMatch
+    // size(s)
+    if (sizeArr && sizeArr.length > 0) {
+      variationConditions.size = { $in: sizeArr.map(s => new RegExp(escapeRegExp(s), 'i')) };
+    }
+
+    // SKUs (variations param or variationSku)
+    if (variationArr && variationArr.length > 0) {
+      // exact-match on sku (case-sensitive or -insensitive depending on your data)
+      variationConditions.sku = { $in: variationArr };
+    }
+
+    // inStock: if explicitly 'true' then require variation.stock > 0.
+    // If you want "product-level" inStock (any variation >0), this $elemMatch works with other variation conditions.
+    if (inStock !== undefined) {
+      if (String(inStock).toLowerCase() === 'true') {
+        variationConditions.stock = { $gt: 0 };
+      } else if (String(inStock).toLowerCase() === 'false') {
+        // If user asks for out-of-stock variations specifically:
+        variationConditions.stock = { $lte: 0 };
+      }
+    }
+
     if (Object.keys(variationConditions).length > 0) {
       filter.variations = { $elemMatch: variationConditions };
     }
 
     console.log('Final filter object:', JSON.stringify(filter, null, 2));
-    
-    const products = await Products.find(filter);
-    
+
+    // Optional: pagination & sorting
+    const pageNum = page ? Math.max(1, parseInt(page, 10) || 1) : 1;
+    const perPage = limit ? Math.max(1, parseInt(limit, 10) || 20) : 50;
+    const skip = (pageNum - 1) * perPage;
+
+    // Build query
+    let query = Products.find(filter);
+
+    // Sorting (example: sortBy=price:asc or sortBy=rating:desc)
+    if (sortBy) {
+      const [field, dir] = String(sortBy).split(':');
+      const sortOrder = dir && dir.toLowerCase() === 'desc' ? -1 : 1;
+      query = query.sort({ [field]: sortOrder });
+    }
+
+    // Apply pagination
+    query = query.skip(skip).limit(perPage);
+
+    const products = await query.exec();
+
     console.log('Found products:', products.length);
     res.status(200).json(products);
-    
+
   } catch (err) {
     console.error('Filter error:', err);
-    res.status(500).json({ 
-      message: "Failed to filter products", 
-      error: err.message 
+    res.status(500).json({
+      message: "Failed to filter products",
+      error: err.message
     });
   }
+};
+
+/**
+ * Helper: escape a string for a RegExp (to avoid user-injected meta-characters)
+ */
+function escapeRegExp(string) {
+  return String(string).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
