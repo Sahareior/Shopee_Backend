@@ -4,10 +4,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import Connection from './database/db.js';
 import users from './routes/Routes.js';
-import products from './routes/Products.js';
+
 import category from './routes/categoryRoutes.js';
 import orders from './routes/orders.js';
 import recentView from './routes/recent_view.js';
+import ALLproducts from './routes/product_routes.js';
 
 dotenv.config();
 const app = express();
@@ -26,7 +27,7 @@ Connection();
 
 // ✅ Register routes
 app.use('/user', users);
-app.use('/products', products);
+app.use('/products', ALLproducts);
 app.use('/categories', category);
 app.use('/orders',orders)
 app.use('/recent-view',recentView)
