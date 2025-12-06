@@ -5,13 +5,12 @@ const cartItemSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",           // reference to users collection
     required: true,
-    index: true
   },
   product: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Product",        // reference to products collection
     required: true,
-    index: true
+  
   },
   quantity: {
     type: Number,
@@ -25,4 +24,5 @@ const cartItemSchema = new mongoose.Schema({
 cartItemSchema.index({ user: 1, product: 1 }, { unique: true });
 
 const CartItem = mongoose.model("CartItem", cartItemSchema);
+
 export default CartItem;

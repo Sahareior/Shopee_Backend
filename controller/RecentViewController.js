@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import RecentView from "../model/RecentView.js";
 
 export const postRecentView = async (req, res) => {
@@ -34,4 +35,51 @@ export const getRecentView = async (req, res) => {
     });
   }
 };
+
+export const getRecentViewByUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) return res.status(400).json({ success: false, message: "userId is required" });
+
+    const pipeline = [
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
+
+      // join with products collection
+      {
+        $lookup: {
+          from: "products",        // Mongo collection name
+          localField: "product",   // field in CartItem
+          foreignField: "_id",     // field in Product
+          as: "product"
+        }
+      },
+
+      // product will be an array; unwind to get single object (preserve nulls if product missing)
+      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
+
+      // optional: project fields you want
+      {
+        $project: {
+          user: 1,
+          quantity: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          product: {
+            _id: 1,
+            name: 1,
+            price: 1,
+            discountPrice: 1,
+            images: 1
+          }
+        }
+      }
+    ];
+
+    const recentViews = await RecentView.aggregate(pipeline);
+    return res.status(200).json({ success: true, data: recentViews   });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 

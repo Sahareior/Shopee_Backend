@@ -9,6 +9,8 @@ import category from './routes/categoryRoutes.js';
 import orders from './routes/orders.js';
 import recentView from './routes/recent_view.js';
 import ALLproducts from './routes/product_routes.js';
+import cartRoutes from './routes/cart.js';
+import wishListRoutes from './routes/wishList.js';
 
 dotenv.config();
 const app = express();
@@ -31,6 +33,8 @@ app.use('/products', ALLproducts);
 app.use('/categories', category);
 app.use('/orders',orders)
 app.use('/recent-view',recentView)
+app.use('/cart', cartRoutes)
+app.use('/wishlist', wishListRoutes)
 
 // ✅ Default route
 app.use('/', (req, res) => {
