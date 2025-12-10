@@ -1,6 +1,10 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
-const TextOverlaySchema = new mongoose.Schema({
+const textOverlaySchema = new mongoose.Schema({
+  id: {
+    type: String,
+    required: true
+  },
   text: {
     type: String,
     required: true,
@@ -12,244 +16,393 @@ const TextOverlaySchema = new mongoose.Schema({
   },
   fontSize: {
     type: Number,
-    default: 24
+    default: 24,
+    min: 12,
+    max: 72
   },
   fontFamily: {
     type: String,
     default: 'System'
   },
+  position: {
+    x: {
+      type: Number,
+      required: true
+    },
+    y: {
+      type: Number,
+      required: true
+    }
+  },
+  style: {
+    bold: {
+      type: Boolean,
+      default: false
+    },
+    italic: {
+      type: Boolean,
+      default: false
+    },
+    underline: {
+      type: Boolean,
+      default: false
+    }
+  },
   align: {
     type: String,
     enum: ['left', 'center', 'right'],
     default: 'center'
-  },
-  bold: {
-    type: Boolean,
-    default: false
-  },
-  italic: {
-    type: Boolean,
-    default: false
-  },
-  underline: {
-    type: Boolean,
-    default: false
-  },
-  position: {
-    x: {
-      type: Number,
-      default: 0.1 // percentage of width (0-1)
-    },
-    y: {
-      type: Number,
-      default: 0.3 // percentage of height (0-1)
-    }
   }
-});
+}, { _id: false });
 
-const StorySchema = new mongoose.Schema({
+const storySchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: "User",
+    required: true,
+    index: true
+  },
+
+    transform: {
+    scale: {
+      type: Number,
+      default: 1,
+      min: 0.5,
+      max: 3
+    },
+    translateX: {
+      type: Number,
+      default: 0
+    },
+    translateY: {
+      type: Number,
+      default: 0
+    }
+  },
+  
+  // Store base64 data directly
+  mediaData: {
+    type: String, // Base64 encoded string
     required: true
   },
-  mediaUrl: {
-    type: String,
-    required: true
-  },
-  thumbnailUrl: {
-    type: String
-  },
+  
   mediaType: {
     type: String,
-    enum: ['image', 'video'],
-    required: true
+    required: true,
+    enum: ["image", "video"],
+    index: true
   },
+  
+  // Store mime type for proper content-type headers
+  mimeType: {
+    type: String,
+    required: true,
+    default: 'image/jpeg'
+  },
+  
+  // Store original filename if available
+  fileName: String,
+  
+  // File size in bytes
+  fileSize: {
+    type: Number,
+    default: 0
+  },
+  
+  // Text overlays array
+  textOverlays: [textOverlaySchema],
+  
+  // Caption
   caption: {
     type: String,
-    maxlength: 150,
+    maxlength: 2200,
+    default: "",
     trim: true
   },
-  textOverlays: [TextOverlaySchema],
   
-  // Video specific fields
-  duration: {
-    type: Number, // in seconds
-    default: 0
-  },
+  // Hashtags extracted from caption
+  hashtags: [{
+    type: String,
+    lowercase: true,
+    index: true
+  }],
   
-  // Story metadata
-  views: [{
+  // Mentions extracted from caption
+  mentions: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
+    ref: "User"
   }],
-  viewCount: {
+  
+  // Story duration (default 24 hours)
+  duration: {
     type: Number,
-    default: 0
-  },
-  reactions: [{
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    },
-    type: {
-      type: String,
-      enum: ['like', 'love', 'laugh', 'wow', 'sad', 'angry']
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-  reactionCount: {
-    type: Number,
-    default: 0
-  },
-  replies: [{
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
-    },
-    text: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-  replyCount: {
-    type: Number,
-    default: 0
+    default: 24,
+    min: 1,
+    max: 168
   },
   
-  // Expiry settings
+  // Auto-calculated expiration
   expiresAt: {
     type: Date,
     required: true,
-    default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from creation
+    index: { expires: 0 }
   },
   
-  // Privacy settings
-  isPublic: {
+  // Visibility settings
+  visibility: {
+    type: String,
+    enum: ["public", "private", "close_friends"],
+    default: "public",
+    index: true
+  },
+  
+  // For private stories
+  visibleTo: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  }],
+  
+  // For close friends
+  closeFriends: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  }],
+  
+  // Story type
+  storyType: {
+    type: String,
+    enum: ["normal", "highlight", "archive"],
+    default: "normal",
+    index: true
+  },
+  
+  // If part of a highlight
+  highlight: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Highlight",
+    default: null
+  },
+  
+  // For video stories
+  videoDuration: {
+    type: Number,
+    min: 1,
+    max: 60
+  },
+  
+  // Media dimensions
+  dimensions: {
+    width: {
+      type: Number,
+      default: 1080
+    },
+    height: {
+      type: Number,
+      default: 1920
+    },
+    aspectRatio: {
+      type: String,
+      default: "9:16"
+    }
+  },
+  
+  // Views tracking
+  views: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    },
+    viewedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  
+  viewCount: {
+    type: Number,
+    default: 0,
+    index: true
+  },
+  
+  // Reactions
+  reactions: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    },
+    type: {
+      type: String,
+      enum: ["like", "heart", "laugh", "wow", "sad", "angry", "reply"],
+      default: "like"
+    },
+    message: {
+      type: String,
+      maxlength: 1000
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  
+  // Story status
+  isActive: {
     type: Boolean,
-    default: true
+    default: true,
+    index: true
   },
-  allowedUsers: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
   
-  // Analytics
-  shares: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
-  shareCount: {
+  // Performance metrics
+  loadCount: {
     type: Number,
     default: 0
   },
   
-  // Status
-  status: {
-    type: String,
-    enum: ['active', 'expired', 'archived', 'deleted'],
-    default: 'active'
-  }
-}, {
+  // Archival info
+  archivedAt: Date
+  
+}, { 
   timestamps: true,
-  toJSON: { virtuals: true },
+  toJSON: { 
+    virtuals: true,
+    transform: function(doc, ret) {
+      // Don't send mediaData in normal queries to reduce payload size
+      delete ret.mediaData;
+      return ret;
+    }
+  },
   toObject: { virtuals: true }
 });
 
-// Indexes for better performance
-StorySchema.index({ user: 1, createdAt: -1 });
-StorySchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-StorySchema.index({ status: 1, isPublic: 1, createdAt: -1 });
-StorySchema.index({ 'views.user': 1 });
-
-// Virtual for checking if story is expired
-StorySchema.virtual('isExpired').get(function() {
-  return this.expiresAt < new Date();
+// Virtual for media URL (for API responses)
+storySchema.virtual('mediaUrl').get(function() {
+  return `/api/stories/${this._id}/media`;
 });
 
-// Virtual for checking if user has viewed
-StorySchema.virtual('hasUserViewed').get(function() {
-  return (userId) => this.views.includes(userId);
+// Virtual for thumbnail URL (same as media for simplicity)
+storySchema.virtual('thumbnailUrl').get(function() {
+  return `/api/stories/${this._id}/media`;
 });
 
-// Virtual for user reaction
-StorySchema.virtual('userReaction').get(function() {
-  return (userId) => this.reactions.find(r => r.user.toString() === userId.toString());
+// Virtual for remaining hours
+storySchema.virtual('remainingHours').get(function() {
+  const now = new Date();
+  const remainingMs = this.expiresAt - now;
+  return Math.max(0, Math.floor(remainingMs / (1000 * 60 * 60)));
 });
 
-// Middleware to update counts before save
-StorySchema.pre('save', function(next) {
-  this.viewCount = this.views.length;
-  this.reactionCount = this.reactions.length;
-  this.replyCount = this.replies.length;
-  this.shareCount = this.shares.length;
+// Virtual for isExpired
+storySchema.virtual('isExpired').get(function() {
+  return new Date() > this.expiresAt;
+});
+
+// Pre-save middleware
+storySchema.pre('save', function(next) {
+  // Set expiresAt if not set
+  if (!this.expiresAt) {
+    this.expiresAt = new Date(Date.now() + (this.duration * 60 * 60 * 1000));
+  }
+  
+  // Extract hashtags from caption
+  if (this.caption) {
+    const hashtagRegex = /#[\w\u0590-\u05ff]+/g;
+    const matches = this.caption.match(hashtagRegex);
+    this.hashtags = matches ? matches.map(tag => tag.slice(1).toLowerCase()) : [];
+  }
+  
+  // Set mime type based on mediaType if not provided
+  if (!this.mimeType) {
+    this.mimeType = this.mediaType === 'video' ? 'video/mp4' : 'image/jpeg';
+  }
+  
   next();
 });
 
-// Method to add view
-StorySchema.methods.addView = async function(userId) {
-  if (!this.views.includes(userId)) {
-    this.views.push(userId);
-    await this.save();
-  }
-  return this;
+// Indexes
+storySchema.index({ user: 1, isActive: 1, expiresAt: 1 });
+storySchema.index({ isActive: 1, expiresAt: 1, visibility: 1 });
+storySchema.index({ createdAt: -1 });
+storySchema.index({ expiresAt: 1 }); // For TTL cleanup
+
+// Static methods
+storySchema.statics.getActiveStoriesByUser = async function(userId) {
+  return this.find({
+    user: userId,
+    isActive: true,
+    expiresAt: { $gt: new Date() }
+  }).select('-mediaData') // Don't fetch media data
+    .sort({ createdAt: -1 });
 };
 
-// Method to add reaction
-StorySchema.methods.addReaction = async function(userId, type) {
-  const existingIndex = this.reactions.findIndex(r => r.user.toString() === userId.toString());
+storySchema.statics.getFeedStories = async function(userId, followingIds) {
+  const visibleToUser = [
+    { visibility: "public" },
+    { visibility: "private", visibleTo: userId },
+    { visibility: "close_friends", closeFriends: userId }
+  ];
+
+  return this.find({
+    user: { $in: followingIds },
+    isActive: true,
+    expiresAt: { $gt: new Date() },
+    $or: visibleToUser
+  }).select('-mediaData')
+    .sort({ createdAt: -1 })
+    .populate('user', 'username profilePicture');
+};
+
+storySchema.statics.addView = async function(storyId, userId) {
+  const story = await this.findById(storyId);
   
-  if (existingIndex > -1) {
-    // Update existing reaction
-    this.reactions[existingIndex].type = type;
-    this.reactions[existingIndex].createdAt = new Date();
-  } else {
-    // Add new reaction
-    this.reactions.push({ user: userId, type });
+  if (!story) throw new Error('Story not found');
+  if (story.isExpired) throw new Error('Story has expired');
+  
+  const alreadyViewed = story.views.some(view => 
+    view.user.toString() === userId.toString()
+  );
+  
+  if (!alreadyViewed) {
+    story.views.push({ user: userId });
+    story.viewCount += 1;
+    await story.save();
   }
   
-  await this.save();
-  return this;
+  return story;
 };
 
-// Method to remove reaction
-StorySchema.methods.removeReaction = async function(userId) {
-  this.reactions = this.reactions.filter(r => r.user.toString() !== userId.toString());
-  await this.save();
-  return this;
-};
-
-// Method to add reply
-StorySchema.methods.addReply = async function(userId, text) {
-  this.replies.push({ user: userId, text });
-  await this.save();
-  return this;
-};
-
-// Method to delete reply
-StorySchema.methods.deleteReply = async function(replyId) {
-  this.replies = this.replies.filter(r => r._id.toString() !== replyId.toString());
-  await this.save();
-  return this;
-};
-
-// Method to add share
-StorySchema.methods.addShare = async function(userId) {
-  if (!this.shares.includes(userId)) {
-    this.shares.push(userId);
-    await this.save();
+// Instance methods
+storySchema.methods.canUserView = function(userId) {
+  if (this.user.toString() === userId.toString()) return true;
+  if (this.isExpired) return false;
+  
+  switch (this.visibility) {
+    case 'public':
+      return true;
+    case 'private':
+      return this.visibleTo.some(id => id.toString() === userId.toString());
+    case 'close_friends':
+      return this.closeFriends.some(id => id.toString() === userId.toString());
+    default:
+      return false;
   }
-  return this;
 };
 
-const Story = mongoose.model('Story', StorySchema);
+storySchema.methods.addReaction = async function(userId, type, message) {
+  this.reactions = this.reactions.filter(
+    reaction => reaction.user.toString() !== userId.toString()
+  );
+  
+  this.reactions.push({
+    user: userId,
+    type,
+    message: type === 'reply' ? message : undefined
+  });
+  
+  return this.save();
+};
+
+const Story = mongoose.model("Story", storySchema);
 
 export default Story;

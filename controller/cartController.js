@@ -1,12 +1,11 @@
-
 import mongoose from "mongoose";
 import CartItem from "../model/Cart.js";
 
 
   export const addToCart = async (req, res) => {
     try {
-      const { user, product, quantity } = req.body;
-
+      const {  product, quantity } = req.body;
+       const user = req.user.id;
      
       // Validate required fields
       if (!user || !product) {
@@ -33,7 +32,7 @@ import CartItem from "../model/Cart.js";
 
 export const getCart = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.user.id;
     if (!userId) return res.status(400).json({ success: false, message: "userId is required" });
 
     const pipeline = [
@@ -76,159 +75,92 @@ export const getCart = async (req, res) => {
   }
 };
 
-//   async updateCartItem(req, res) {
-//     try {
-//       const { userId, productId } = req.params;
-//       const { quantity } = req.body;
+export const updateCartItem = async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { quantity } = req.body;
+    console.log(itemId);
 
-//       if (!userId || !productId) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "userId and productId are required"
-//         });
-//       }
+    // Validate required fields
+    if (!itemId || !mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid itemId is required"
+      });
+    }
 
-//       const updatedItem = await CartItem.updateCartItem(
-//         userId, 
-//         productId, 
-//         quantity
-//       );
+    if (quantity === undefined || quantity === null) {
+      return res.status(400).json({
+        success: false,
+        message: "Quantity is required"
+      });
+    }
 
-//       res.status(200).json({
-//         success: true,
-//         message: "Cart updated",
-//         data: updatedItem
-//       });
-//     } catch (error) {
-//       res.status(400).json({
-//         success: false,
-//         message: error.message
-//       });
-//     }
-//   }
+    if (quantity < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Quantity must be at least 1"
+      });
+    }
 
-//   async removeFromCart(req, res) {
-//     try {
-//       const { userId, productId } = req.params;
+    // Find and update the cart item
+    const updatedItem = await CartItem.findByIdAndUpdate(
+      itemId,
+      { quantity },
+      { new: true, runValidators: true }
+    );
 
-//       if (!userId || !productId) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "userId and productId are required"
-//         });
-//       }
+    if (!updatedItem) {
+      return res.status(404).json({
+        success: false,
+        message: "Cart item not found"
+      });
+    }
 
-//       const result = await CartItem.removeFromCart(userId, productId);
+    res.status(200).json({
+      success: true,
+      message: "Cart item updated successfully",
+      data: updatedItem
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
 
-//       res.status(200).json({
-//         success: true,
-//         message: result.message
-//       });
-//     } catch (error) {
-//       res.status(404).json({
-//         success: false,
-//         message: error.message
-//       });
-//     }
-//   }
+export const removeFromCart = async (req, res) => {
+  try {
+    const { itemId } = req.params;
 
-//   async clearCart(req, res) {
-//     try {
-//       const { userId } = req.params;
+    // Validate itemId
+    if (!itemId || !mongoose.Types.ObjectId.isValid(itemId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid itemId is required"
+      });
+    }
 
-//       if (!userId) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "userId is required"
-//         });
-//       }
+    // Find and delete the cart item
+    const deletedItem = await CartItem.findByIdAndDelete(itemId);
 
-//       const result = await CartItem.clearCart(userId);
+    if (!deletedItem) {
+      return res.status(404).json({
+        success: false,
+        message: "Cart item not found"
+      });
+    }
 
-//       res.status(200).json({
-//         success: true,
-//         message: result.message,
-//         deletedCount: result.deletedCount
-//       });
-//     } catch (error) {
-//       res.status(500).json({
-//         success: false,
-//         message: error.message
-//       });
-//     }
-//   }
-
-//   async getCartCount(req, res) {
-//     try {
-//       const { userId } = req.params;
-
-//       if (!userId) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "userId is required"
-//         });
-//       }
-
-//       const count = await CartItem.getCartCount(userId);
-
-//       res.status(200).json({
-//         success: true,
-//         count
-//       });
-//     } catch (error) {
-//       res.status(500).json({
-//         success: false,
-//         message: error.message
-//       });
-//     }
-//   }
-
-//   async checkInCart(req, res) {
-//     try {
-//       const { userId, productId } = req.params;
-
-//       if (!userId || !productId) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "userId and productId are required"
-//         });
-//       }
-
-//       const status = await CartItem.isInCart(userId, productId);
-
-//       res.status(200).json({
-//         success: true,
-//         ...status
-//       });
-//     } catch (error) {
-//       res.status(500).json({
-//         success: false,
-//         message: error.message
-//       });
-//     }
-//   }
-
-//   async getCartSummary(req, res) {
-//     try {
-//       const { userId } = req.params;
-
-//       if (!userId) {
-//         return res.status(400).json({
-//           success: false,
-//           message: "userId is required"
-//         });
-//       }
-
-//       const summary = await CartItem.getCartSummary(userId);
-
-//       res.status(200).json({
-//         success: true,
-//         data: summary
-//       });
-//     } catch (error) {
-//       res.status(500).json({
-//         success: false,
-//         message: error.message
-//       });
-//     }
-//   }
+    res.status(200).json({
+      success: true,
+      message: "Item removed from cart successfully",
+      data: deletedItem
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+}

@@ -11,6 +11,8 @@ import recentView from './routes/recent_view.js';
 import ALLproducts from './routes/product_routes.js';
 import cartRoutes from './routes/cart.js';
 import wishListRoutes from './routes/wishList.js';
+import storyRoute from './routes/storyRoutes.js';
+import verifyToken from './middleware/verifyToken.js';
 
 dotenv.config();
 const app = express();
@@ -29,12 +31,13 @@ Connection();
 
 // ✅ Register routes
 app.use('/user', users);
-app.use('/products', ALLproducts);
-app.use('/categories', category);
-app.use('/orders',orders)
-app.use('/recent-view',recentView)
-app.use('/cart', cartRoutes)
-app.use('/wishlist', wishListRoutes)
+app.use('/products',verifyToken, ALLproducts);
+app.use('/categories',verifyToken, category);
+app.use('/orders',verifyToken, orders)
+app.use('/recent-view',verifyToken, recentView)
+app.use('/cart', verifyToken, cartRoutes)
+app.use('/wishlist', verifyToken, wishListRoutes)
+app.use('/story',verifyToken, storyRoute)
 
 // ✅ Default route
 app.use('/', (req, res) => {
