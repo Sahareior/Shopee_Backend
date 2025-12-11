@@ -2,16 +2,45 @@ import mongoose from "mongoose";
 import RecentView from "../model/RecentView.js";
 
 export const postRecentView = async (req, res) => {
-  const data = req.body;
-
   try {
-    // Option A: use Model.create (one-line)
-    const savedData = await RecentView.create(data);
+    const user = req.user.id;
+    const { productId } = req.body;
 
-    // Option B (equivalent): const doc = new RecentView(data); const savedData = await doc.save();
+    if (!productId) return res.status(400).json({ error: "productId id is required" });
+
+    // Validate productId is ObjectId
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ error: "invalid productId id" });
+    }
+
+    // Check for existing recent view for the same user and product
+    const existingView = await RecentView.findOne({ user, productId });
+
+    if (existingView) {
+      // Update the timestamp of the existing view to make it recent
+      existingView.createdAt = new Date();
+      await existingView.save();
+      
+      return res.status(200).json({
+        message: "Recent view updated",
+        savedData: existingView,
+      });
+    }
+
+    // Create new recent view if it doesn't exist
+    const savedData = await RecentView.create({ user, productId });
+
+    // Clean up old views (older than 7 days) for this user
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    await RecentView.deleteMany({ 
+      user, 
+      createdAt: { $lt: sevenDaysAgo } 
+    });
 
     return res.status(201).json({
-      message: "saved recent-view data",
+      message: "Saved recent-view data",
       savedData,
     });
   } catch (err) {
@@ -23,8 +52,7 @@ export const postRecentView = async (req, res) => {
 export const getRecentView = async (req, res) => {
   try {
     const data = await RecentView.find()
-      .populate("product")
-      .populate("user",{password:0});
+      .populate("productId");
 
     return res.status(200).json(data);
   } catch (err) {
@@ -38,48 +66,48 @@ export const getRecentView = async (req, res) => {
 
 export const getRecentViewByUser = async (req, res) => {
   try {
-    const { userId } = req.params;
-    if (!userId) return res.status(400).json({ success: false, message: "userId is required" });
+    const userId = req.user.id;
 
-    const pipeline = [
-      { $match: { user: new mongoose.Types.ObjectId(userId) } },
+    // Clean up old views (older than 7 days) for this user before fetching
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    await RecentView.deleteMany({ 
+      user: userId, 
+      createdAt: { $lt: sevenDaysAgo } 
+    });
 
-      // join with products collection
-      {
-        $lookup: {
-          from: "products",        // Mongo collection name
-          localField: "product",   // field in CartItem
-          foreignField: "_id",     // field in Product
-          as: "product"
-        }
-      },
+    // Fetch recent views (last 7 days, limited to 20)
+    const recentViews = await RecentView.find({ user: userId })
+      .sort({ createdAt: -1 }) // Sort by creation date
+      .limit(20)
+      .populate({
+        path: "productId",
+        select: "name price images slug",
+      })
+      .lean();
 
-      // product will be an array; unwind to get single object (preserve nulls if product missing)
-      { $unwind: { path: "$product", preserveNullAndEmptyArrays: true } },
-
-      // optional: project fields you want
-      {
-        $project: {
-          user: 1,
-          quantity: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          product: {
-            _id: 1,
-            name: 1,
-            price: 1,
-            discountPrice: 1,
-            images: 1
-          }
-        }
-      }
-    ];
-
-    const recentViews = await RecentView.aggregate(pipeline);
-    return res.status(200).json({ success: true, data: recentViews   });
+    return res.status(200).json({ success: true, data: recentViews });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-
+// Optional: Add a scheduled cleanup function to run periodically
+// This can be called via a cron job or setInterval
+export const cleanupOldRecentViews = async () => {
+  try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const result = await RecentView.deleteMany({ 
+      createdAt: { $lt: sevenDaysAgo } 
+    });
+    
+    console.log(`Cleaned up ${result.deletedCount} old recent views`);
+    return result;
+  } catch (error) {
+    console.error("Cleanup error:", error);
+    throw error;
+  }
+};

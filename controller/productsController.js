@@ -48,11 +48,13 @@ export const filterProducts = async (req, res) => {
       color,
       size,
       inStock,
-      search
+      search,
+      sortBy // Add sortBy parameter
     } = req.query;
 
     console.log('Color:', color);
     console.log('Size:', size);
+    console.log('Sort By:', sortBy);
 
     // Build filter object
     const filter = {};
@@ -162,8 +164,39 @@ export const filterProducts = async (req, res) => {
 
     console.log('Final filter object:', JSON.stringify(filter, null, 2));
     
-    // Find products with the filter
-    const products = await Products.find(filter);
+    // Build sort object based on sortBy parameter
+    let sort = {};
+    if (sortBy) {
+      switch (sortBy) {
+        case 'newest':
+          // Using _id for newest (assuming ObjectId contains timestamp)
+          sort = { _id: -1 }; // Descending for newest first
+          break;
+        case 'price_low_high':
+          sort = { price: 1 }; // Ascending price
+          break;
+        case 'price_high_low':
+          sort = { price: -1 }; // Descending price
+          break;
+        case 'rating':
+          sort = { rating: -1 }; // Descending rating (highest first)
+          break;
+        case 'most_reviewed':
+          sort = { reviews: -1 }; // Descending reviews count
+          break;
+        default:
+          // Default sort
+          sort = { _id: -1 }; // Newest first by default
+      }
+    } else {
+      // Default sort if no sortBy parameter provided
+      sort = { _id: -1 };
+    }
+    
+    console.log('Sort object:', sort);
+    
+    // Find products with the filter and sort
+    const products = await Products.find(filter).sort(sort);
     
     // Extract metadata from the filtered products
     const colorsSet = new Set();
@@ -204,7 +237,8 @@ export const filterProducts = async (req, res) => {
         colors,
         sizes,
         brands,
-        totalProducts: products.length
+        totalProducts: products.length,
+        sortBy: sortBy || 'newest' // Return the current sort method
       }
     });
     
