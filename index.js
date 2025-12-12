@@ -13,6 +13,7 @@ import cartRoutes from './routes/cart.js';
 import wishListRoutes from './routes/wishList.js';
 import storyRoute from './routes/storyRoutes.js';
 import verifyToken from './middleware/verifyToken.js';
+import socialRoutes from './routes/socialRoutes.js';
 
 dotenv.config();
 const app = express();
@@ -38,6 +39,7 @@ app.use('/recent-view',verifyToken, recentView)
 app.use('/cart', verifyToken, cartRoutes)
 app.use('/wishlist', verifyToken, wishListRoutes)
 app.use('/story',verifyToken, storyRoute)
+app.use('/social', verifyToken,socialRoutes)
 
 // ✅ Default route
 app.use('/', (req, res) => {
