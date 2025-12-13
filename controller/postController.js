@@ -1,8 +1,11 @@
-import { Post } from "../model/Post.js";
-import fs from 'fs';
-import path from 'path';
-import sizeOf from 'image-size';
 import User from "../model/User.js";
+import { Post } from "../model/Post.js";
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import sizeOf from 'image-size'; // You'll need to install this: npm install image-size
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Upload a post with all new features
 export const uploadAPost = async (req, res) => {
@@ -12,122 +15,71 @@ export const uploadAPost = async (req, res) => {
       media, 
       audience, 
       hashtags, 
-      taggedProducts,
       taggedUsers,
       feeling,
       location,
-      poll,
-      event,
-      linkPreview,
-      sharedPost,
-      sharedContent,
       isScheduled,
       scheduledFor
-    } = req.body;
+    } = req.body.postData || req.body;
     
     const author = req.user.id;
 
+    console.log("Extracted content:", content);
+    console.log("Media received:", media ? `Array with ${media.length} items` : 'No media');
+    console.log("First media item:", media && media[0] ? {
+      hasBase64: !!media[0].base64,
+      base64Length: media[0].base64?.length,
+      base64Prefix: media[0].base64?.substring(0, 50) + '...'
+    } : 'No media items');
+
     // Validate required fields
-    if (!content && (!media || media.length === 0) && !sharedPost && !poll?.question && !event?.title && !linkPreview?.url) {
+    if (!content && (!media || !Array.isArray(media) || media.length === 0)) {
       return res.status(400).json({
         success: false,
-        message: "Content, media, poll, event, or link preview is required"
+        message: "Either content or media is required to create a post"
       });
     }
 
-    // Process media - handle base64 uploads
+    // Process media - store base64 directly
     let processedMedia = [];
     if (media && Array.isArray(media)) {
-      processedMedia = await Promise.all(media.map(async (item, index) => {
+      console.log("Processing", media.length, "media items");
+      
+      processedMedia = media.map((item, index) => {
+        console.log(`Processing media item ${index}:`, {
+          hasBase64: !!item.base64,
+          base64Prefix: item.base64?.substring(0, 30),
+          width: item.width,
+          height: item.height
+        });
+
+        // Create media item object
         const mediaItem = {
           order: index,
-          caption: item.caption || ""
+          caption: item.caption || "",
+          mediaType: item.mediaType || 'image',
+          width: item.width || 800,
+          height: item.height || 600
         };
 
-        // Handle base64 image upload
-        if (item.base64) {
-          try {
-            // Generate unique filename
-            const timestamp = Date.now();
-            const randomString = Math.random().toString(36).substring(2, 15);
-            const filename = `post_${author}_${timestamp}_${randomString}`;
-            
-            // Determine file extension from base64 data
-            let extension = 'jpg';
-            if (item.base64.startsWith('data:image/png')) {
-              extension = 'png';
-            } else if (item.base64.startsWith('data:image/jpeg')) {
-              extension = 'jpg';
-            } else if (item.base64.startsWith('data:image/gif')) {
-              extension = 'gif';
-            } else if (item.base64.startsWith('data:image/webp')) {
-              extension = 'webp';
-            }
-            
-            const fullFilename = `${filename}.${extension}`;
-            
-            // Remove data URL prefix
-            const base64Data = item.base64.replace(/^data:image\/\w+;base64,/, '');
-            
-            // Create buffer from base64
-            const buffer = Buffer.from(base64Data, 'base64');
-            
-            // For development/testing: Save to local folder
-            // In production, you'd upload to cloud storage (S3, Cloudinary, etc.)
-            const uploadPath = path.join(__dirname, '../../uploads/posts');
-            
-            // Create directory if it doesn't exist
-            if (!fs.existsSync(uploadPath)) {
-              fs.mkdirSync(uploadPath, { recursive: true });
-            }
-            
-            const filePath = path.join(uploadPath, fullFilename);
-            
-            // Save file
-            await fs.promises.writeFile(filePath, buffer);
-            
-            // In production, you would:
-            // 1. Upload to S3/Cloudinary
-            // 2. Get the public URL
-            // 3. Delete local file
-            
-            // For now, we'll use a local URL path
-            mediaItem.url = `/uploads/posts/${fullFilename}`;
-            mediaItem.mediaType = 'image';
-            mediaItem.thumbnail = `/uploads/posts/${fullFilename}`;
-            
-            // Get image dimensions
-            if (item.width && item.height) {
-              mediaItem.width = item.width;
-              mediaItem.height = item.height;
-            } else {
-              // Extract dimensions from base64 if not provided
-              try {
-                const imageSize = sizeOf(buffer);
-                mediaItem.width = imageSize.width;
-                mediaItem.height = imageSize.height;
-              } catch (err) {
-                console.log('Could not get image dimensions:', err);
-              }
-            }
-            
-          } catch (uploadError) {
-            console.error('Error uploading base64 image:', uploadError);
-            throw new Error(`Failed to upload image ${index + 1}`);
-          }
-        } 
-        // Handle regular URL media (for backward compatibility)
-        else if (item.uri) {
-          mediaItem.url = item.uri;
-          mediaItem.mediaType = item.mediaType || 'image';
-          mediaItem.thumbnail = item.thumbnail || item.uri;
-          mediaItem.width = item.width;
-          mediaItem.height = item.height;
-          mediaItem.duration = item.duration || 0;
+        // Store base64 directly - THIS IS THE KEY LINE
+        if (item.base64 && item.base64.startsWith('data:image')) {
+          // Store the full base64 string
+          mediaItem.base64 = item.base64;
+          console.log(`Stored base64 for item ${index}, length: ${item.base64.length}`);
+        } else if (item.base64) {
+          // If base64 doesn't have data prefix, add it
+          mediaItem.base64 = `data:image/jpeg;base64,${item.base64}`;
+          console.log(`Added prefix to base64 for item ${index}, length: ${item.base64.length}`);
+        } else {
+          console.warn(`No base64 found for media item ${index}`);
         }
         
         return mediaItem;
-      }));
+      });
+      
+      console.log("Processed", processedMedia.length, "media items");
+      console.log("First processed item has base64:", !!processedMedia[0]?.base64);
     }
 
     // Process hashtags if provided
@@ -141,88 +93,40 @@ export const uploadAPost = async (req, res) => {
     // Build post data
     const postData = {
       author,
-      content,
+      content: content || "",
       media: processedMedia,
       audience: audience || 'public',
       hashtags: processedHashtags,
-      taggedProducts: taggedProducts || [],
       taggedUsers: taggedUsers || [],
       feeling: feeling || undefined,
       mentions: taggedUsers || [],
       isScheduled: isScheduled || false
     };
 
-    // Add location if provided
-    if (location) {
-      if (typeof location === 'object') {
-        postData.location = location;
-      } else if (typeof location === 'string') {
-        postData.location = { name: location };
-      }
-    }
-
-    // Add poll if provided
-    if (poll && poll.question) {
-      postData.poll = {
-        question: poll.question,
-        options: poll.options?.map(opt => ({
-          text: opt.text,
-          votes: 0,
-          voters: []
-        })) || [],
-        expiresAt: poll.expiresAt ? new Date(poll.expiresAt) : undefined,
-        isActive: true
-      };
-    }
-
-    // Add event if provided
-    if (event && event.title) {
-      postData.event = {
-        title: event.title,
-        description: event.description,
-        date: event.date ? new Date(event.date) : undefined,
-        time: event.time,
-        location: event.location,
-        isVirtual: event.isVirtual || false,
-        registrationLink: event.registrationLink,
-        maxAttendees: event.maxAttendees,
-        attendees: [],
-        isActive: true
-      };
-    }
-
-    // Add link preview if provided
-    if (linkPreview && linkPreview.url) {
-      postData.linkPreview = {
-        title: linkPreview.title,
-        description: linkPreview.description,
-        url: linkPreview.url,
-        image: linkPreview.image,
-        domain: new URL(linkPreview.url).hostname
-      };
-    }
-
-    // Add shared post if provided
-    if (sharedPost) {
-      postData.sharedPost = sharedPost;
-      postData.sharedContent = sharedContent || "";
-    }
-
-    // Add scheduled time if scheduled
-    if (isScheduled && scheduledFor) {
-      postData.scheduledFor = new Date(scheduledFor);
-    }
+    console.log("Post data to save:", {
+      contentLength: postData.content.length,
+      mediaCount: postData.media.length,
+      firstMediaHasBase64: postData.media[0]?.base64 ? 'Yes' : 'No'
+    });
 
     // Create post
     const newPost = await Post.create(postData);
 
-    // Populate author details
+    // Populate author details - but don't include base64 in response if it's too large
     const populatedPost = await Post.findById(newPost._id)
       .populate('author', 'name username profilePicture isSeller sellerProfile')
-      .populate('taggedProducts.product', 'name price images')
       .populate('taggedUsers', 'name username profilePicture')
-      .populate('sharedPost')
       .lean();
+
+    // Optionally: Remove base64 from response if you want to save bandwidth
+    // Only include a thumbnail or smaller version
+    if (populatedPost.media && populatedPost.media.length > 0) {
+      populatedPost.media = populatedPost.media.map(item => {
+        const { base64, ...rest } = item;
+        // Return only metadata or a smaller version
+        return rest;
+      });
+    }
 
     // Add user interaction info
     populatedPost.userLiked = false;

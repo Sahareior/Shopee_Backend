@@ -26,19 +26,18 @@ const postSchema = new mongoose.Schema({
   },
   
   // Media
-  media: [{
-    url: String,
-    mediaType: {
-      type: String,
-      enum: ['image', 'video']
-    },
-    thumbnail: String,
-    width: Number,
-    height: Number,
-    duration: Number, // For videos
-    order: Number, // For gallery ordering
-    caption: String
-  }],
+// In your Post model schema
+media: [{
+  base64: String, // Store base64 string directly
+  mediaType: {
+    type: String,
+    enum: ['image', 'video']
+  },
+  caption: String,
+  width: Number,
+  height: Number,
+  order: Number
+}],
   
   // For shared posts
   sharedPost: {
@@ -124,7 +123,7 @@ const postSchema = new mongoose.Schema({
     registrationLink: String,
     attendees: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     maxAttendees: Number,
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: false }
   },
   
   // Link Sharing

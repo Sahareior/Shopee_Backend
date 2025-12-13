@@ -14,11 +14,17 @@ import wishListRoutes from './routes/wishList.js';
 import storyRoute from './routes/storyRoutes.js';
 import verifyToken from './middleware/verifyToken.js';
 import socialRoutes from './routes/socialRoutes.js';
+import path from "path";
+import { fileURLToPath } from "url";
+
 
 dotenv.config();
 const app = express();
 const PORT = 8000;
 
+// app.js / server.js (where you configure express)
+app.use(express.json({ limit: '50mb' }));        // or larger depending on needs
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // ✅ Increase payload limit
 app.use(bodyParser.json({ limit: '50mb', extended: true }));
@@ -26,6 +32,12 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // ✅ Enable CORS
 app.use(cors());
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve uploads folder as static
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ✅ Connect to database
 Connection();
