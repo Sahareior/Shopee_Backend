@@ -462,7 +462,7 @@ export const reactToPost = async (req, res) => {
   try {
     const postId = req.params.postId;
     const userId = req.user.id;
-    const { reactionType } = req.body; // 'like', 'love', 'haha', 'wow', 'sad', 'angry', or null to remove
+    // No need for reactionType in request body since we only have 'like'
 
     const post = await Post.findById(postId);
     if (!post) {
@@ -472,46 +472,55 @@ export const reactToPost = async (req, res) => {
       });
     }
 
+    // Check if user already liked the post
+    const userIndex = post.likes.findIndex(like => 
+      like.toString() === userId
+    );
+
     let message = "";
-    
-    if (reactionType) {
-      // Add or change reaction
-      await post.addReaction(userId, reactionType);
-      message = `Reacted with ${reactionType}`;
+    let isLiked = false;
+
+    if (userIndex > -1) {
+      // User already liked - unlike the post
+      post.likes.splice(userIndex, 1);
+      post.likeCount = Math.max(0, post.likeCount - 1);
+      message = "Post unliked";
+      isLiked = false;
     } else {
-      // Remove all reactions
-      await post.removeReaction(userId);
-      message = "Reaction removed";
+      // User hasn't liked - like the post
+      post.likes.push(userId);
+      post.likeCount += 1;
+      message = "Post liked";
+      isLiked = true;
     }
 
-    // Get updated post
-    const updatedPost = await Post.findById(postId)
+    await post.save();
+
+    // Get users who liked (first 3 for preview)
+    const populatedPost = await Post.findById(postId)
+      .populate({
+        path: 'likes',
+        select: 'name username profilePicture',
+        options: { limit: 3 }
+      })
       .populate('author', 'name username profilePicture')
       .lean();
-
-    // Add user interaction info
-    updatedPost.userLiked = updatedPost.likes.some(like => like.toString() === userId);
-    updatedPost.userReaction = updatedPost.reactions ? 
-      Object.entries(updatedPost.reactions).find(([_, users]) => 
-        users.some(u => u.toString() === userId)
-      )?.[0] : null;
 
     res.status(200).json({
       success: true,
       message,
       data: {
-        likes: updatedPost.likes,
-        likeCount: updatedPost.likeCount,
-        reactions: updatedPost.reactions,
-        reactionCounts: updatedPost.reactionCounts,
-        totalReactions: updatedPost.totalReactions,
-        userLiked: updatedPost.userLiked,
-        userReaction: updatedPost.userReaction
+        isLiked,
+        likeCount: populatedPost.likeCount,
+        totalLikes: populatedPost.likeCount, // Same as likeCount for consistency
+        likes: populatedPost.likes, // Array of user objects (first 3)
+        likePreview: populatedPost.likes.slice(0, 3), // First 3 users who liked
+        userLiked: isLiked // Alias for isLiked
       }
     });
 
   } catch (error) {
-    console.error("Error reacting to post:", error);
+    console.error("Error liking post:", error);
     res.status(500).json({
       success: false,
       message: error.message
