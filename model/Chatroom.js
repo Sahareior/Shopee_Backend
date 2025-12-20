@@ -6,7 +6,7 @@ const chatRoomSchema = new mongoose.Schema({
     ref: "User",           // reference to users collection
     required: true,
   },
-  reciever: {
+  receiver: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",        // reference to products collection
     required: true,
@@ -16,7 +16,7 @@ const chatRoomSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Prevent duplicate cart items for same user+product
-chatRoomSchema.index({ user: 1, reciver: 1 }, { unique: true });
+chatRoomSchema.index({ user: 1, receiver: 1 }, { unique: true });
 
 const ChatRoom = mongoose.model("Chatroom", chatRoomSchema);
 

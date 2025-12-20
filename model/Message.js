@@ -50,7 +50,7 @@ const messageSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
-  // For reply functionality
+
   isReply: {
     type: Boolean,
     default: false
@@ -59,7 +59,7 @@ const messageSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Message"
   },
-  // For message deletion (soft delete)
+
   deletedFor: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: "User"

@@ -3,14 +3,15 @@ import ChatRoom from "../model/Chatroom.js";
 
 
 export const createChat = async (req, res) => {
-  const { sender, receiver } = req.body;
+  const {  receiver } = req.body;
+  const user = req.user.id;
 
   try {
     // Check if chat room already exists (in either direction)
     const existingChat = await ChatRoom.findOne({
       $or: [
-        { sender, receiver },
-        { sender: receiver, receiver: sender }
+        { user, receiver },
+        { user: receiver, receiver: user }
       ]
     });
 
@@ -22,7 +23,7 @@ export const createChat = async (req, res) => {
       });
     }
 
-    const chatRoom = await new ChatRoom({ sender, receiver }).save();
+    const chatRoom = await new ChatRoom({ user, receiver }).save();
     
     res.status(201).json({
       success: true,
@@ -46,5 +47,12 @@ export const createChat = async (req, res) => {
     });
   }
 };
+
+const sendMessage = async (req,res) => {
+    const {chatRoom, message} = req.body
+
+    const findChatroom = await ChatRoom.find({chatRoom})
+    console.log(findChatroom,'this is chatroom')
+}
 
 

@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Message from "../model/Message";
+import Message from "../model/Message.js";
 
 /* ------------------------------------------------
    SEND MESSAGE
@@ -49,6 +49,8 @@ export const getMessagesByRoom = async (req, res) => {
   try {
     const { chatRoomId } = req.params;
     const { page = 1, limit = 20 } = req.query;
+
+    console.log(chatRoomId,'asss')
 
     if (!mongoose.Types.ObjectId.isValid(chatRoomId)) {
       return res.status(400).json({ message: "Invalid chat room ID" });
